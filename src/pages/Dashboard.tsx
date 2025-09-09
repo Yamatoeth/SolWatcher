@@ -1,32 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { WalletInput } from "@/components/WalletInput";
 import { WalletOverview } from "@/components/WalletOverview";
 import { StatsCards } from "@/components/StatsCards";
 import { TransactionTable, Transaction } from "@/components/TransactionTable";
 import { WelcomeHero } from "@/components/WelcomeHero";
-import { fetchWalletData, fetchTransactions, fetchWalletStats, WalletData, WalletStats } from "@/lib/solana-api";
+import { fetchWalletData, WalletData } from "@/lib/solana-api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [stats, setStats] = useState<WalletStats | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const handleWalletSubmit = async (address: string) => {
     setLoading(true);
     try {
-      // Fetch all wallet data in parallel
-      const [walletInfo, txHistory, walletStats] = await Promise.all([
-        fetchWalletData(address),
-        fetchTransactions(address, 20),
-        fetchWalletStats(address),
-      ]);
+      // Fetch wallet data via the unified API
+      const walletInfo = await fetchWalletData(address);
 
       setWalletData(walletInfo);
-      setTransactions(txHistory);
-      setStats(walletStats);
 
       toast({
         title: "Wallet loaded successfully",
@@ -77,10 +69,14 @@ export default function Dashboard() {
             />
 
             {/* Stats Cards */}
-            {stats && <StatsCards data={stats} />}
+            {walletData.tokens.length > 0 && (
+              <StatsCards data={{ tokens: walletData.tokens }} />
+            )}
 
             {/* Transaction History */}
-            <TransactionTable transactions={transactions} />
+            {walletData.transactions.length > 0 && (
+              <TransactionTable transactions={walletData.transactions} />
+            )}
           </div>
         )}
 

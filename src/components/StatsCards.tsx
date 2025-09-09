@@ -1,10 +1,15 @@
 import { TrendingUp, Coins, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+interface Token {
+  symbol: string;
+  amount: number;
+}
+
 interface StatsData {
-  totalTransactions: number;
-  topTokens: Array<{ symbol: string; amount: number; }>;
-  tradingVolume: number;
+  totalTransactions?: number;
+  topTokens?: Token[];
+  tradingVolume?: number;
 }
 
 interface StatsCardsProps {
@@ -12,6 +17,10 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ data }: StatsCardsProps) {
+  const totalTransactions = data.totalTransactions ?? 0;
+  const topTokens = data.topTokens ?? [];
+  const tradingVolume = data.tradingVolume ?? 0;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Total Transactions */}
@@ -21,7 +30,7 @@ export function StatsCards({ data }: StatsCardsProps) {
           <Activity className="h-4 w-4 text-primary" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary">{data.totalTransactions}</div>
+          <div className="text-2xl font-bold text-primary">{totalTransactions}</div>
           <p className="text-xs text-muted-foreground">Last 30 days</p>
         </CardContent>
       </Card>
@@ -34,12 +43,15 @@ export function StatsCards({ data }: StatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            {data.topTokens.slice(0, 3).map((token, index) => (
+            {topTokens.slice(0, 3).map((token, index) => (
               <div key={index} className="flex justify-between items-center text-sm">
                 <span className="font-medium">{token.symbol}</span>
                 <span className="text-muted-foreground">{token.amount.toFixed(2)}</span>
               </div>
             ))}
+            {topTokens.length === 0 && (
+              <div className="text-sm text-muted-foreground">No tokens found</div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -51,7 +63,9 @@ export function StatsCards({ data }: StatsCardsProps) {
           <TrendingUp className="h-4 w-4 text-solana-green" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-solana-green">${data.tradingVolume.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-solana-green">
+            ${tradingVolume.toLocaleString()}
+          </div>
           <p className="text-xs text-muted-foreground">Estimated 30d volume</p>
         </CardContent>
       </Card>
