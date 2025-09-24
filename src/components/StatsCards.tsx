@@ -1,5 +1,6 @@
-import { TrendingUp, Coins, Activity } from "lucide-react";
+import { TrendingUp, Coins, Activity, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TokenAccount, Transaction } from "@/lib/solana-api";
 
 interface Token {
   symbol: string;
@@ -7,9 +8,8 @@ interface Token {
 }
 
 interface StatsData {
-  totalTransactions?: number;
-  topTokens?: Token[];
-  tradingVolume?: number;
+  tokens: TokenAccount[];
+  transactions: Transaction[];
 }
 
 interface StatsCardsProps {
@@ -17,9 +17,55 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ data }: StatsCardsProps) {
-  const totalTransactions = data.totalTransactions ?? 0;
-  const topTokens = data.topTokens ?? [];
-  const tradingVolume = data.tradingVolume ?? 0;
+  const { tokens, transactions } = data;
+  
+  // Calculate real statistics
+  const totalTransactions = transactions.length;
+  
+  // Calculate total tokens held (excluding SOL)
+  const totalTokensHeld = tokens.filter(token => 
+    token.mint !== "So11111111111111111111111111111111111111112" // Exclude SOL
+  ).length;
+  
+  // Get top tokens by value using pre-calculated uiAmount
+  const topTokens = tokens
+    .filter(token => token.mint !== "So11111111111111111111111111111111111111112") // Exclude SOL
+    .sort((a, b) => {
+      // Use pre-calculated uiAmount for sorting
+      return b.tokenAmount.uiAmount - a.tokenAmount.uiAmount;
+    })
+    .slice(0, 3)
+    .map(token => {
+      // Use pre-calculated uiAmount and round to 2 decimal places
+      const balance = token.tokenAmount.uiAmount;
+      return {
+        symbol: token.tokenInfo?.symbol || token.mint.slice(0, 4) + "...",
+        amount: Math.round(balance * 100) / 100 // Round to 2 decimal places
+      };
+    });
+  
+  // Calculate estimated trading volume from transactions
+  const swapTransactions = transactions.filter(tx => 
+    tx.type === "Swap" || tx.description?.includes("SWAP")
+  );
+  
+  const tradingVolume = swapTransactions.reduce((total, tx) => {
+    // Extract the larger amount from swap transactions
+    const match = tx.description?.match(/SWAP ([\d.]+)\s+(\w+)\s*->\s*([\d.]+)\s+(\w+)/);
+    if (match) {
+      const amount1 = parseFloat(match[1]);
+      const amount2 = parseFloat(match[3]);
+      return total + Math.max(amount1, amount2);
+    }
+    return total;
+  }, 0);
+  
+  // Calculate transaction types breakdown
+  const swapCount = swapTransactions.length;
+  const transferCount = transactions.filter(tx => 
+    tx.type === "Send" || tx.type === "Receive" || tx.description?.includes("Send") || tx.description?.includes("Receive")
+  ).length;
+  const otherCount = totalTransactions - swapCount - transferCount;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -31,17 +77,34 @@ export function StatsCards({ data }: StatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-primary">{totalTransactions}</div>
-          <p className="text-xs text-muted-foreground">Last 30 days</p>
+          <div className="flex flex-col gap-1 mt-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Swaps:</span>
+              <span className="font-medium">{swapCount}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Transfers:</span>
+              <span className="font-medium">{transferCount}</span>
+            </div>
+            {otherCount > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Other:</span>
+                <span className="font-medium">{otherCount}</span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Top Tokens */}
+      {/* Tokens Held */}
       <Card className="gradient-card border-accent/20 shadow-card hover:shadow-glow transition-glow">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Top Tokens</CardTitle>
-          <Coins className="h-4 w-4 text-solana-blue" />
+          <CardTitle className="text-sm font-medium">Tokens Held</CardTitle>
+          <Wallet className="h-4 w-4 text-solana-blue" />
         </CardHeader>
         <CardContent>
+          <div className="text-2xl font-bold text-solana-blue">{totalTokensHeld}</div>
+          <p className="text-xs text-muted-foreground mb-3">Unique SPL tokens</p>
           <div className="space-y-1">
             {topTokens.slice(0, 3).map((token, index) => (
               <div key={index} className="flex justify-between items-center text-sm">
@@ -64,9 +127,21 @@ export function StatsCards({ data }: StatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-solana-green">
-            ${tradingVolume.toLocaleString()}
+            {tradingVolume > 0 ? tradingVolume.toFixed(2) : '0.00'}
           </div>
-          <p className="text-xs text-muted-foreground">Estimated 30d volume</p>
+          <p className="text-xs text-muted-foreground">Total swap volume</p>
+          {swapCount > 0 && (
+            <div className="mt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Swap transactions:</span>
+                <span className="font-medium">{swapCount}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Avg per swap:</span>
+                <span className="font-medium">{swapCount > 0 ? (tradingVolume / swapCount).toFixed(2) : '0.00'}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

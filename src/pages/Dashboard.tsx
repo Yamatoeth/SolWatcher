@@ -2,7 +2,7 @@ import { useState } from "react";
 import { WalletInput } from "@/components/WalletInput";
 import { WalletOverview } from "@/components/WalletOverview";
 import { StatsCards } from "@/components/StatsCards";
-import { TransactionTable, Transaction } from "@/components/TransactionTable";
+import { TransactionTable } from "@/components/TransactionTable";
 import { WelcomeHero } from "@/components/WelcomeHero";
 import { fetchWalletData, WalletData } from "@/lib/solana-api";
 import { useToast } from "@/hooks/use-toast";
@@ -70,7 +70,10 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             {walletData.tokens.length > 0 && (
-              <StatsCards data={{ tokens: walletData.tokens }} />
+              <StatsCards data={{ 
+                tokens: walletData.tokens, 
+                transactions: walletData.transactions 
+              }} />
             )}
 
             {/* Transaction History */}
