@@ -1,6 +1,7 @@
-// solana-api.ts - Optimized with Helius Best Practices
+// solana-api.ts - Optimized with Helius Best Practices (Serverless Version)
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
+import { apiClient, heliusRpc, heliusDas } from './api-client';
 
 // Types
 export interface TokenAccount {
@@ -129,12 +130,7 @@ interface DASResponse {
   limit: number;
 }
 
-// Config
-const HELIUS_API_KEY = import.meta.env.VITE_HELIUS_API_KEY;
-const HELIUS_BASE_URL = 'https://mainnet.helius-rpc.com';
-const HELIUS_RPC_URL = import.meta.env.VITE_HELIUS_RPC_URL || `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
-const HELIUS_DAS_URL = import.meta.env.VITE_HELIUS_DAS_URL || "https://mainnet.helius-rpc.com/v0/das";
-
+// Config - Les variables sont maintenant gérées côté serveur
 // Constants for optimization
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -293,31 +289,14 @@ async function getTokenSymbolFast(mint: string): Promise<string> {
 // Helper for Helius RPC with retry logic and rate limiting
 async function callHeliusApi(method: string, params: any[], retries = MAX_RETRIES): Promise<any> {
   try {
-    // Apply rate limiting
-    await rpcRateLimiter.waitForSlot('helius-rpc', RATE_LIMITS.RPC_REQUESTS_PER_MINUTE);
-    
-    const res = await fetch(`${HELIUS_BASE_URL}?api-key=${HELIUS_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "helius-explorer",
-        method,
-        params,
-      }),
+    // Le rate limiting est maintenant géré côté serveur
+    const result = await apiClient.callHelius({
+      method,
+      params,
+      id: 1,
     });
-
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-
-    const data = await res.json();
     
-    if (data.error) {
-      throw new Error(`RPC error: ${data.error.message}`);
-    }
-
-    return data.result;
+    return result;
   } catch (error) {
     if (retries > 0) {
       console.log(`Retrying ${method} (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})...`);
@@ -331,31 +310,20 @@ async function callHeliusApi(method: string, params: any[], retries = MAX_RETRIE
 // Helper for DAS API with retry logic and rate limiting
 async function callDASApi(method: string, params: any, retries = MAX_RETRIES): Promise<any> {
   try {
-    // Apply rate limiting
-    await dasRateLimiter.waitForSlot('helius-das', RATE_LIMITS.DAS_REQUESTS_PER_MINUTE);
-    
-    const res = await fetch(`${HELIUS_DAS_URL}?api-key=${HELIUS_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "helius-das",
+    // Le rate limiting est maintenant géré côté serveur
+    if (method === "getAsset") {
+      const result = await heliusDas.getAsset(params.id);
+      return { result };
+    } else {
+      // Pour les autres méthodes DAS, utiliser l'appel générique
+      const result = await apiClient.callHelius({
         method,
         params,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+        id: 1,
+        endpoint: "das",
+      });
+      return result;
     }
-
-    const data = await res.json();
-    
-    if (data.error) {
-      throw new Error(`DAS API error: ${data.error.message}`);
-    }
-
-    return data.result;
   } catch (error) {
     if (retries > 0) {
       console.log(`Retrying ${method} (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})...`);
