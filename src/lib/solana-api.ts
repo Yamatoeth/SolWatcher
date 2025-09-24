@@ -314,6 +314,14 @@ async function callDASApi(method: string, params: any, retries = MAX_RETRIES): P
     if (method === "getAsset") {
       const result = await heliusDas.getAsset(params.id);
       return { result };
+    } else if (method === "getAssetsByOwner") {
+      // Utiliser la méthode spécifique pour getAssetsByOwner
+      const result = await heliusDas.getAssetsByOwner(
+        params.ownerAddress,
+        params.limit || 100,
+        params.page || 1
+      );
+      return result;
     } else {
       // Pour les autres méthodes DAS, utiliser l'appel générique
       const result = await apiClient.callHelius({
